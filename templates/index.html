@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Detection System</title>
+    
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1a1c2e 0%, #283593 100%);
+            min-height: 100vh;
+        }
+
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .detection-container {
+            max-height: 400px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+        }
+
+        .detection-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .detection-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .detection-container::-webkit-scrollbar-thumb {
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .video-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1rem;
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            z-index: 10;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            padding: 2rem;
+            max-width: 500px;
+            margin: 15% auto;
+            color: white;
+        }
+    </style>
+</head>
+<body class="p-4">
+    <div class="container mx-auto max-w-7xl">
+        <!-- Header -->
+        <div class="text-center mb-8 fade-in">
+            <h1 class="text-4xl font-bold text-white mb-2">
+                <i class="fas fa-drone-alt mr-2"></i>Drone Detection System
+            </h1>
+            <p class="text-gray-300">Real-time drone monitoring and detection</p>
+        </div>
+
+        <!-- Session Control -->
+        <div class="flex justify-end mb-4">
+            <button id="endSessionBtn" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200">
+                <i class="fas fa-power-off mr-2"></i>End Session
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Video Feed Section -->
+            <div class="lg:col-span-2">
+                <div class="glass-effect rounded-2xl p-6 h-full">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold text-white">
+                            <i class="fas fa-video mr-2"></i>Live Feed
+                        </h2>
+                        <div class="flex items-center">
+                            <span id="statusBadge" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-500 text-white">
+                                <span class="pulse inline-block w-2 h-2 rounded-full bg-white mr-2"></span>
+                                Live
+                            </span>
+                        </div>
+                    </div>
+                    <div class="video-container">
+                        <img src="{{ url_for('video_feed') }}" alt="Video Feed" class="w-full rounded-lg shadow-lg">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detection Results Section -->
+            <div class="glass-effect rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-semibold text-white">
+                        <i class="fas fa-radar mr-2"></i>Detection Results
+                    </h2>
+                    <div id="detectionCount" class="text-sm text-gray-300">
+                        Monitoring...
+                    </div>
+                </div>
+                <div class="detection-container" id="detectionResults">
+                    <!-- Results will be populated here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Section -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+            <div class="glass-effect rounded-xl p-6 text-white">
+                <h3 class="text-lg font-semibold mb-2">
+                    <i class="fas fa-clock mr-2"></i>Session Duration
+                </h3>
+                <p id="sessionTime" class="text-2xl font-bold">00:00:00</p>
+            </div>
+            <div class="glass-effect rounded-xl p-6 text-white">
+                <h3 class="text-lg font-semibold mb-2">
+                    <i class="fas fa-bullseye mr-2"></i>Detection Rate
+                </h3>
+                <p id="detectionRate" class="text-2xl font-bold">0 per minute</p>
+            </div>
+            <div class="glass-effect rounded-xl p-6 text-white">
+                <h3 class="text-lg font-semibold mb-2">
+                    <i class="fas fa-chart-line mr-2"></i>Average Confidence
+                </h3>
+                <p id="avgConfidence" class="text-2xl font-bold">0%</            </div>
+        </div>
+    </div>
+
+    <!-- End Session Modal -->
+    <div id="endSessionModal" class="modal">
+        <div class="modal-content text-center">
+            <h2 class="text-2xl font-bold mb-4">End Detection Session?</h2>
+            <p class="mb-6">Are you sure you want to end the current detection session? All current statistics will be saved.</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirmEndSession" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200">
+                    End Session
+                </button>
+                <button id="cancelEndSession" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Session state
+        let sessionActive = true;
+        let startTime = new Date();
+        let totalDetections = 0;
+        let confidenceSum = 0;
+        let updateTimerId;
+        let detectionTimerId;
+
+        // Modal elements
+        const modal = document.getElementById('endSessionModal');
+        const endSessionBtn = document.getElementById('endSessionBtn');
+        const confirmEndBtn = document.getElementById('confirmEndSession');
+        const cancelEndBtn = document.getElementById('cancelEndSession');
+
+        // Modal controls
+        endSessionBtn.onclick = () => modal.style.display = 'block';
+        cancelEndBtn.onclick = () => modal.style.display = 'none';
+        window.onclick = (event) => {
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        };
+
+        // End session functionality
+        confirmEndBtn.onclick = async () => {
+            sessionActive = false;
+            modal.style.display = 'none';
+            
+            // Update UI to reflect ended session
+            document.getElementById('statusBadge').className = 
+                'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-500 text-white';
+            document.getElementById('statusBadge').innerHTML = 
+                '<i class="fas fa-stop-circle mr-2"></i>Session Ended';
+            
+            // Stop the intervals
+            clearInterval(updateTimerId);
+            clearInterval(detectionTimerId);
+
+            // Save session data
+            const sessionData = {
+                duration: document.getElementById('sessionTime').textContent,
+                totalDetections: totalDetections,
+                averageConfidence: document.getElementById('avgConfidence').textContent,
+                detectionRate: document.getElementById('detectionRate').textContent
+            };
+
+            try {
+                const response = await fetch('/end_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(sessionData)
+                });
+                
+                if (response.ok) {
+                    console.log('Session data saved successfully');
+                }
+            } catch (error) {
+                console.error('Error saving session data:', error);
+            }
+        };
+
+        function updateSessionTime() {
+            if (!sessionActive) return;
+            
+            const now = new Date();
+            const diff = now - startTime;
+            const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
+            const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
+            document.getElementById('sessionTime').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        function updateStats(detections) {
+            if (!sessionActive) return;
+
+            // Update detection count
+            document.getElementById('detectionCount').textContent = 
+                `${detections.length} detection${detections.length !== 1 ? 's' : ''} found`;
+
+            // Update total detections
+            totalDetections += detections.length;
+            
+            // Calculate detection rate
+            const sessionMinutes = (new Date() - startTime) / 60000;
+            const rate = (totalDetections / sessionMinutes).toFixed(1);
+            document.getElementById('detectionRate').textContent = `${rate} per minute`;
+
+            // Calculate average confidence
+            if (detections.length > 0) {
+                const avgConf = detections.reduce((sum, det) => sum + det.confidence, 0) / detections.length;
+                confidenceSum = (confidenceSum + avgConf) / 2; // Rolling average
+                document.getElementById('avgConfidence').textContent = 
+                    `${(confidenceSum * 100).toFixed(1)}%`;
+            }
+        }
+
+        function updateDetections() {
+            if (!sessionActive) return;
+
+            fetch('/get_detections')
+                .then(response => response.json())
+                .then(detections => {
+                    const container = document.getElementById('detectionResults');
+                    if (detections.length > 0) {
+                        const html = detections.map(detection => `
+                            <div class="bg-white/10 rounded-lg p-4 mb-4 text-white fade-in">
+                                <div class="flex justify-between items-center mb-2">
+                                    <span class="font-semibold">
+                                        <i class="fas fa-drone mr-2"></i>${detection.class}
+                                    </span>
+                                    <span class="px-2 py-1 rounded-full text-sm ${
+                                        detection.confidence > 0.8 ? 'bg-green-500' :
+                                        detection.confidence > 0.6 ? 'bg-yellow-500' : 'bg-red-500'
+                                    }">
+                                        ${(detection.confidence * 100).toFixed(1)}%
+                                    </span>
+                                </div>
+                                <div class="text-sm text-gray-300">
+                                    <i class="fas fa-location-dot mr-2"></i>
+                                    Position: (${detection.bbox.map(n => Math.round(n)).join(', ')})
+                                </div>
+                            </div>
+                        `).join('');
+                        container.innerHTML = html;
+                    }
+                    updateStats(detections);
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Start the intervals
+        updateTimerId = setInterval(updateSessionTime, 1000);
+        detectionTimerId = setInterval(updateDetections, 100);
+    </script>
+</body>
+</html>
