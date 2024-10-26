@@ -19,7 +19,7 @@ detection_queue = Queue(maxsize=1)
 
 def initialize_model():
     try:
-        model = YOLO("C:/Users/bhavi/Downloads/drone_detection_web/yolov8n_trained.pt")  # Update path as needed
+        model = YOLO("yolov8n_trained.pt")  # Update path as needed
         print("Model loaded successfully")
         print(f"Model classes: {model.names}")
         return model
