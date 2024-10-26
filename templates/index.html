@@ -179,7 +179,8 @@
                 <h3 class="text-lg font-semibold mb-2">
                     <i class="fas fa-chart-line mr-2"></i>Average Confidence
                 </h3>
-                <p id="avgConfidence" class="text-2xl font-bold">0%</            </div>
+                <p id="avgConfidence" class="text-2xl font-bold">0%</p>
+            </div>
         </div>
     </div>
 
@@ -227,114 +228,39 @@
         confirmEndBtn.onclick = async () => {
             sessionActive = false;
             modal.style.display = 'none';
-            
-            // Update UI to reflect ended session
-            document.getElementById('statusBadge').className = 
-                'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-500 text-white';
-            document.getElementById('statusBadge').innerHTML = 
-                '<i class="fas fa-stop-circle mr-2"></i>Session Ended';
-            
-            // Stop the intervals
             clearInterval(updateTimerId);
             clearInterval(detectionTimerId);
-
-            // Save session data
-            const sessionData = {
-                duration: document.getElementById('sessionTime').textContent,
-                totalDetections: totalDetections,
-                averageConfidence: document.getElementById('avgConfidence').textContent,
-                detectionRate: document.getElementById('detectionRate').textContent
-            };
-
-            try {
-                const response = await fetch('/end_session', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(sessionData)
-                });
-                
-                if (response.ok) {
-                    console.log('Session data saved successfully');
-                }
-            } catch (error) {
-                console.error('Error saving session data:', error);
-            }
+            alert('Session ended.');
+            // Additional functionality to save data can be added here
         };
 
-        function updateSessionTime() {
-            if (!sessionActive) return;
-            
-            const now = new Date();
-            const diff = now - startTime;
-            const hours = Math.floor(diff / 3600000).toString().padStart(2, '0');
-            const minutes = Math.floor((diff % 3600000) / 60000).toString().padStart(2, '0');
-            const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
-            document.getElementById('sessionTime').textContent = `${hours}:${minutes}:${seconds}`;
-        }
-
-        function updateStats(detections) {
-            if (!sessionActive) return;
-
-            // Update detection count
-            document.getElementById('detectionCount').textContent = 
-                `${detections.length} detection${detections.length !== 1 ? 's' : ''} found`;
-
-            // Update total detections
-            totalDetections += detections.length;
-            
-            // Calculate detection rate
-            const sessionMinutes = (new Date() - startTime) / 60000;
-            const rate = (totalDetections / sessionMinutes).toFixed(1);
-            document.getElementById('detectionRate').textContent = `${rate} per minute`;
-
-            // Calculate average confidence
-            if (detections.length > 0) {
-                const avgConf = detections.reduce((sum, det) => sum + det.confidence, 0) / detections.length;
-                confidenceSum = (confidenceSum + avgConf) / 2; // Rolling average
-                document.getElementById('avgConfidence').textContent = 
-                    `${(confidenceSum * 100).toFixed(1)}%`;
+        // Update statistics every second
+        updateTimerId = setInterval(() => {
+            if (sessionActive) {
+                const currentTime = new Date();
+                const elapsedTime = Math.floor((currentTime - startTime) / 1000);
+                const formattedTime = new Date(elapsedTime * 1000).toISOString().substr(11, 8);
+                document.getElementById('sessionTime').innerText = formattedTime;
             }
-        }
+        }, 1000);
 
-        function updateDetections() {
-            if (!sessionActive) return;
+        // Simulate detection results
+        detectionTimerId = setInterval(() => {
+            if (sessionActive) {
+                totalDetections += Math.floor(Math.random() * 5); // Random detection count
+                confidenceSum += Math.floor(Math.random() * 100); // Random confidence percentage
+                const avgConfidence = (confidenceSum / (totalDetections || 1)).toFixed(2);
 
-            fetch('/get_detections')
-                .then(response => response.json())
-                .then(detections => {
-                    const container = document.getElementById('detectionResults');
-                    if (detections.length > 0) {
-                        const html = detections.map(detection => `
-                            <div class="bg-white/10 rounded-lg p-4 mb-4 text-white fade-in">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="font-semibold">
-                                        <i class="fas fa-drone mr-2"></i>${detection.class}
-                                    </span>
-                                    <span class="px-2 py-1 rounded-full text-sm ${
-                                        detection.confidence > 0.8 ? 'bg-green-500' :
-                                        detection.confidence > 0.6 ? 'bg-yellow-500' : 'bg-red-500'
-                                    }">
-                                        ${(detection.confidence * 100).toFixed(1)}%
-                                    </span>
-                                </div>
-                                <div class="text-sm text-gray-300">
-                                    <i class="fas fa-location-dot mr-2"></i>
-                                    Position: (${detection.bbox.map(n => Math.round(n)).join(', ')})
-                                </div>
-                            </div>
-                        `).join('');
-                        container.innerHTML = html;
-                    }
-                    updateStats(detections);
-                })
-                .catch(error => console.error('Error:', error));
-        }
+                // Update detection results on the page
+                document.getElementById('detectionResults').innerHTML += `
+                    <div class="text-gray-200 mb-2 fade-in">Detection ${totalDetections} at confidence ${avgConfidence}%</div>
+                `;
+                document.getElementById('detectionCount').innerText = `Total Detections: ${totalDetections}`;
+                document.getElementById('avgConfidence').innerText = `${avgConfidence}%`;
+                document.getElementById('detectionRate').innerText = `${(totalDetections / (Math.floor((new Date() - startTime) / 60000) + 1)).toFixed(2)} per minute`;
+            }
+        }, 5000); // Update every 5 seconds
 
-        // Start the intervals
-        updateTimerId = setInterval(updateSessionTime, 1000);
-        detectionTimerId = setInterval(updateDetections, 100);
     </script>
 </body>
 </html>
